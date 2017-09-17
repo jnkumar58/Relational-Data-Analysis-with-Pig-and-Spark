@@ -1,0 +1,36 @@
+PIG:
+A)
+readfile= LOAD '/home/node/Downloads/cloud-2/purchase' AS (year:int,cid:chararray,isbn:chararray,seller:chararray,price:int);  //This statement is used to LOAD the purchase file and assign names and define data types to each column based on positional basis
+arrange_by_seller= FOREACH readfile GENERATE $3,$4;     //Generate a tuple consisting of seller and price
+group_by_seller= GROUP arrange_by_seller BY seller;   //Group on basis of seller name
+total= FOREACH group_by_seller GENERATE group,SUM(arrange_by_seller.price);   //Generate SUM and group on basis of seller name.
+DUMP total;    //Output total
+
+B)
+read_purchase_file= load '/home/node/Downloads/cloud-2/purchase' as ( year:int, cid:chararray, isbn:chararray, seller:chararray, price:int );   //This statement is used to LOAD the purchase file and assign names and define data types to each column based on positional basis
+read_book_file= load '/home/node/Downloads/cloud-2/book' as ( isbn:chararray, name:chararray );
+//This statement is used to LOAD the book file and assign names and define data types to each column based on positional basis
+group_purchase_isbn= GROUP read_purchase_file BY isbn;  //Group purchase file on base of isbn
+find_minprice= FOREACH group_purchase_isbn GENERATE group,MIN(read_purchase_file.price) as minprice;   //Find minimum price available for each isbn among all sellers
+join_isbn= join read_purchase_file by isbn,find_minprice by group;     //join purchase file and minprice  with isbn as condition
+join1= FILTER join_isbn by read_purchase_file::seller == 'Amazon' and read_purchase_file::price == find_minprice::minprice;  //Filter if price is equal to minprice and seller is Amazon
+get_book_id= FOREACH join1 GENERATE read_purchase_file::isbn;   //Filter the book id’s having minimum price 
+join2 = JOIN read_book_file BY isbn,get_book_id by read_purchase_file::isbn;    // join book-id’s and book file with isbn as anchor
+amazon_min= FOREACH join2 GENERATE read_book_file::name;  //Get the book names
+DUMP amazon_min;  //Dump output
+
+C)
+purchase = load '/home/node/Downloads/cloud-2/purchase' as ( year:int, cid:chararray, isbn:chararray, sellername:chararray, price:int );
+book = load '/home/node/Downloads/cloud-2/book' as ( isbn:chararray, name:chararray );
+customer = load '/home/node/Downloads/cloud-2/customer' as ( cid:chararray, name:chararray, age:int, address:chararray, sex:chararray );
+filter1= FILTER customer BY name=='Harry Smith';
+harry_id= FOREACH filter1 GENERATE cid;
+join1= JOIN purchase by cid, harry_id by cid;
+harry_isbn= FOREACH join1 GENERATE harry_id::cid as cid,purchase::isbn as isbn;
+join2= JOIN purchase by isbn, book by isbn;
+filter2= FILTER join2 by purchase::cid != 'C2';
+other_cid= FOREACH filter2 GENERATE purchase::cid as new_cid;
+join3= JOIN customer by cid, other_cid by new_cid;
+filter3= FILTER join3 by customer::cid == other_cid::new_cid;
+name= FOREACH filter3 GENERATE customer::name;
+unique_name= DISTINCT name;
