@@ -1,0 +1,91 @@
+SPARK:
+
+A)
+from __future__ import print_function
+from pyspark.sql import SparkSession
+from pyspark.sql import Row
+from pyspark.sql.types import *
+sold = spark.sparkContext
+purchase_read = sc.textFile("/home/node/Downloads/cloud-2/purchase")  //read the purchase file
+purchase_file = purchase_read.map(lambda x: x.split("\t"))   //split the purchase file on basis of delimiter “\t”
+data_extract = purchase_file.map(lambda x:Row(year=int(x[0]),cid=x[1],isbn=x[2],sellername=x[3],price=int(x[4])))
+//
+schemaPurchase = spark.createDataFrame(data_extract)     //Inferring the schema
+schemaPurchase.createOrReplaceTempView("data_extract")  //Registering DataFrame as  SQL temporary
+total = spark.sql("select seller,SUM(price) from data_extract group by sellername")  //Group on base of sellername and sum it
+
+B)
+bb1 = sqlContext.sql("SELECT isbn,seller,price FROM p11 WHERE isbn == 'B1'")
+bb1.createOrReplaceTempView("bb1")
+# select isbn,seller,price from the input schema for isbn == B1 and store for future use
+bb11 = sqlContext.sql("SELECT isbn,seller,price FROM bb1 WHERE price==(SELECT MIN(price) FROM bb1)")
+bb11.createOrReplaceTempView("bb11")
+# select isbn,seller and price from the tuple which has the minimum price and store for future use
+bbb = bb11.join(booktable, (bb11.isbn == booktable.isbn))
+# join the filtered table with book table using isbn as common
+bbb.createOrReplaceTempView("bbb")
+# save table for future use
+#p = sqlContext.sql("SELECT isbn,seller,price FROM bb11 WHERE price<(SELECT #MAX(price) FROM bb11)")
+# from the above table, select value which is lesser than the max price
+
+#Grouping according to B2 and selecting relevant data
+bb2 = sqlContext.sql("SELECT isbn,seller,price FROM p11 WHERE isbn == 'B2'")
+bb2.createOrReplaceTempView("bb2")
+# select isbn,seller,price from the input schema for isbn == B2 and store for future use
+bb22 = sqlContext.sql("SELECT isbn,seller,price FROM bb2 WHERE price==(SELECT MIN(price) FROM bb2)")
+bb22.createOrReplaceTempView("bb22")
+#select isbn,seller and price from the tuple which has the minimum price and store for future use
+bb222 = bb22.join(booktable, (bb22.isbn == booktable.isbn))
+bb222.createOrReplaceTempView("bb222")
+# join the filtered table with book table using isbn as common and store for future use
+
+#Grouping according to B3 and selecting relevant data
+bb3 = sqlContext.sql("SELECT isbn,seller,price FROM p11 WHERE isbn == 'B3'")
+bb3.createOrReplaceTempView("bb3")
+# select isbn,seller,price from the input schema for isbn == B1 and store for future use
+bb33 = sqlContext.sql("SELECT isbn,seller,price FROM bb3 WHERE price==(SELECT MIN(price) FROM bb3)")
+bb33.createOrReplaceTempView("bb33")
+#select isbn,seller and price from the tuple which has the minimum price and store for future use
+bb333 = bb22.join(booktable, (bb33.isbn == booktable.isbn))
+bb333.createOrReplaceTempView("bb333")
+# join the filtered table with book table using isbn as common and store for future use
+
+#Union all the books and select result
+#oo = p.union(bb22).union(bb33)
+oo = bb11.union(bb22).union(bb33)
+oo.createOrReplaceTempView("oo")
+#union the above three final results and save for future use
+up = sqlContext.sql("SELECT isbn,seller,price FROM oo WHERE seller=='Amazon'")
+up.createOrReplaceTempView("up")
+#filter by seller==’Amazon’ and store the result
+hn = up.join(booktable, up.isbn==booktable.isbn)
+hn.createOrReplaceTempView("hn")
+#join with  book table using isbn as common and store the result
+answer = sqlContext.sql("SELECT name,seller,price FROM hn")
+answer.show()
+#select name,seller and price from the joined table and display the price
+
+C)
+a = sqlContext.sql("SELECT cid FROM c11 WHERE (name=='Harry Smith')")
+a.createOrReplaceTempView("a")
+#select rows with name == Harry Smith from the customer Schema and store
+b = sqlContext.sql("SELECT isbn FROM p11 WHERE cid==(SELECT cid FROM a)")
+b.createOrReplaceTempView("b")
+#select all isbn of Harrys cid in purchase table and store
+c = b.join(purchasetable,(b.isbn==purchasetable.isbn))
+c.createOrReplaceTempView("c")
+#join with purchase table with isbn as common
+d = sqlContext.sql("SELECT cid FROM c")
+d.createOrReplaceTempView("d")
+#retrieve only cid from the above table
+e = d.join(customertable,(d.cid==customertable.cid))
+e.createOrReplaceTempView("e")
+#join with customertable with cid as common
+f = sqlContext.sql("SELECT name FROM e WHERE (name!='Harry Smith')")
+f.createOrReplaceTempView("f")
+#filter records where name!=Harry Smith
+f.dropDuplicates().show()
+
+
+
+
